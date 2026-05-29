@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Forex Analysis — MarketSage</title>
+    <link rel="stylesheet" href="/static/style.css" />
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+  </head>
+  <body>
+    <nav class="topnav">
+      <a href="/" class="nav-brand">MarketSage</a>
+      <div class="nav-links">
+        <a href="/forex" class="nav-link active">Forex</a>
+        <a href="/options" class="nav-link">Options</a>
+      </div>
+    </nav>
+
+    <div class="page">
+      <header>
+        <h1>Forex Analysis</h1>
+        <p>Machine-learning price forecast for currency pairs.</p>
+      </header>
+      <main>
+        <form method="post" class="control-form">
+          <div class="form-row">
+            <label>
+              Pair
+              <input type="text" name="pair" value="{{ form_data.pair }}" placeholder="EURUSD=X" />
+            </label>
+            <label>
+              Period
+              <select name="period">
+                {% for p in ["3mo","6mo","1y","2y"] %}
+                <option value="{{ p }}" {% if form_data.period == p %}selected{% endif %}>{{ p }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <label>
+              Interval
+              <select name="interval">
+                {% for iv in ["1d","1h","4h"] %}
+                <option value="{{ iv }}" {% if form_data.interval == iv %}selected{% endif %}>{{ iv }}</option>
+                {% endfor %}
+              </select>
+            </label>
+          </div>
+          <button type="submit" class="btn btn-primary">Run Analysis</button>
+        </form>
+
+        {% if error %}
+        <div class="message error">{{ error }}</div>
+        {% endif %}
+
+        {% if result %}
+        <section class="result">
+          <div class="result-header">
+            <span class="symbol">{{ result.symbol }}</span>
+            <span class="badge badge-{{ result.direction | lower }}">{{ result.direction }}</span>
+          </div>
+
+          <div id="price-chart"></div>
+
+          <div class="stats-grid">
+            <div class="stat">
+              <div class="stat-label">Last Close</div>
+              <div class="stat-value">{{ "%.5f" | format(result.last_close) }}</div>
+            </div>
+            <div class="stat">
+              <div class="stat-label">Predicted Next</div>
+              <div class="stat-value">{{ "%.5f" | format(result.next_prediction) }}</div>
+            </div>
+            <div class="stat">
+              <div class="stat-label">Confidence ±</div>
+              <div class="stat-value">{{ "%.5f" | format(result.confidence) }}</div>
+            </div>
+            <div class="stat">
+              <div class="stat-label">Change</div>
+              <div class="stat-value {{ 'positive' if result.predicted_change > 0 else 'negative' }}">
+                {{ "%+.5f" | format(result.predicted_change) }}
+              </div>
+            </div>
+            <div class="stat">
+              <div class="stat-label">BB Upper</div>
+              <div class="stat-value">{{ "%.5f" | format(result.bb_upper) }}</div>
+            </div>
+            <div class="stat">
+              <div class="stat-label">BB Lower</div>
+              <div class="stat-value">{{ "%.5f" | format(result.bb_lower) }}</div>
+            </div>
+            <div class="stat">
+              <div class="stat-label">MAE</div>
+              <div class="stat-value">{{ "%.5f" | format(result.metrics.mae) }}</div>
+            </div>
+            <div class="stat">
+              <div class="stat-label">RMSE</div>
+              <div class="stat-value">{{ "%.5f" | format(result.metrics.rmse) }}</div>
+            </div>
+          </div>
+        </section>
+
+        <script>
+          (function () {
+            const dates = {{ result.chart_dates | tojson }};
+            const prices = {{ result.chart_prices | tojson }};
+            const nextPrice = {{ result.next_prediction }};
+            const conf = {{ result.confidence }};
+            const bbUpper = {{ result.bb_upper }};
+            const bbLower = {{ result.bb_lower }};
+            const isUp = {{ "true" if result.direction == "UP" else "false" }};
+
+            const predDate = "Forecast";
+            const priceLine = {
+              x: dates, y: prices, type: "scatter", mode: "lines",
+              name: "Close", line: { color: "#2e7dff", width: 2 },
+            };
+            const predMarker = {
+              x: [predDate], y: [nextPrice], type: "scatter", mode: "markers",
+              name: "Prediction",
+              error_y: { type: "data", array: [conf], visible: true, color: isUp ? "#16a34a" : "#dc2626" },
+              marker: { size: 12, color: isUp ? "#16a34a" : "#dc2626", symbol: isUp ? "triangle-up" : "triangle-down" },
+            };
+            const lastDate = dates[dates.length - 1];
+            const bbUpperLine = {
+              x: [dates[0], lastDate], y: [bbUpper, bbUpper], type: "scatter", mode: "lines",
+              name: "BB Upper", line: { color: "#f59e0b", width: 1, dash: "dot" },
+            };
+            const bbLowerLine = {
+              x: [dates[0], lastDate], y: [bbLower, bbLower], type: "scatter", mode: "lines",
+              name: "BB Lower", line: { color: "#f59e0b", width: 1, dash: "dot" },
+            };
+            Plotly.newPlot("price-chart",
+              [priceLine, bbUpperLine, bbLowerLine, predMarker],
+              {
+                margin: { t: 10, r: 20, b: 40, l: 60 },
+                paper_bgcolor: "transparent", plot_bgcolor: "transparent",
+                xaxis: { gridcolor: "#e5eaf2", tickangle: -30 },
+                yaxis: { gridcolor: "#e5eaf2" },
+                legend: { orientation: "h", y: -0.22 },
+                font: { family: "Arial, sans-serif", size: 12, color: "#111" },
+              },
+              { responsive: true, displayModeBar: false }
+            );
+          })();
+        </script>
+        {% endif %}
+      </main>
+    </div>
+
+    <footer class="page-footer">
+      <small>MarketSage &mdash; Not financial advice.</small>
+    </footer>
+  </body>
+</html>

@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MarketSage — AI Market Intelligence</title>
+    <link rel="stylesheet" href="/static/style.css" />
+  </head>
+  <body class="home-body">
+    <nav class="topnav">
+      <a href="/" class="nav-brand">MarketSage</a>
+      <div class="nav-links">
+        <a href="/forex" class="nav-link">Forex</a>
+        <a href="/options" class="nav-link">Options</a>
+      </div>
+    </nav>
+
+    <section class="hero">
+      <div class="hero-inner">
+        <div class="hero-badge">AI-Powered Analysis</div>
+        <h1 class="hero-title">Market intelligence,<br />powered by machine learning.</h1>
+        <p class="hero-sub">
+          Forecast forex pairs with Random Forest models. Explore live options chains,
+          implied volatility skews, and Greeks — all in one place.
+        </p>
+        <div class="hero-cta">
+          <a href="/forex" class="btn btn-primary">Forex Analysis</a>
+          <a href="/options" class="btn btn-outline">Options Market</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="features">
+      <div class="features-inner">
+        <div class="feature-card">
+          <div class="feature-icon">&#x1F4C8;</div>
+          <h2>Forex Forecasting</h2>
+          <p>
+            Download real-time forex data via yfinance and run a tuned
+            Random Forest model trained on MACD, RSI, Bollinger Bands,
+            momentum, and volatility features.
+          </p>
+          <ul class="feature-list">
+            <li>UP / DOWN direction forecast</li>
+            <li>Prediction confidence interval</li>
+            <li>Interactive price + BB chart</li>
+            <li>MAE &amp; RMSE model metrics</li>
+          </ul>
+          <a href="/forex" class="btn btn-primary btn-sm">Open Forex →</a>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">&#x1F4CA;</div>
+          <h2>Options Market</h2>
+          <p>
+            Pull live options chains for any US stock or ETF. Inspect
+            calls and puts near the money, compute Black-Scholes Greeks,
+            and visualize the implied volatility skew.
+          </p>
+          <ul class="feature-list">
+            <li>Full calls &amp; puts chain</li>
+            <li>Delta, Gamma, Theta, Vega</li>
+            <li>IV skew chart by strike</li>
+            <li>ITM / OTM highlighting</li>
+          </ul>
+          <a href="/options" class="btn btn-primary btn-sm">Open Options →</a>
+        </div>
+      </div>
+    </section>
+
+    <footer class="home-footer">
+      <small>MarketSage &mdash; Built with yfinance &amp; scikit-learn. Not financial advice.</small>
+    </footer>
+  </body>
+</html>

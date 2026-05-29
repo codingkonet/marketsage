@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Options Market — MarketSage</title>
+    <link rel="stylesheet" href="/static/style.css" />
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+  </head>
+  <body>
+    <nav class="topnav">
+      <a href="/" class="nav-brand">MarketSage</a>
+      <div class="nav-links">
+        <a href="/forex" class="nav-link">Forex</a>
+        <a href="/options" class="nav-link active">Options</a>
+      </div>
+    </nav>
+
+    <div class="page page-wide">
+      <header>
+        <h1>Options Market Analysis</h1>
+        <p>Live options chains, Black-Scholes Greeks, and IV skew for US stocks &amp; ETFs.</p>
+      </header>
+      <main>
+        <form method="post" class="control-form">
+          <div class="form-row">
+            <label>
+              Symbol <span class="hint">e.g. SPY, AAPL, TSLA, QQQ</span>
+              <input type="text" name="symbol" value="{{ form_data.symbol }}" placeholder="SPY" />
+            </label>
+            {% if result %}
+            <label>
+              Expiry Date
+              <select name="expiry">
+                {% for exp in result.expiries %}
+                <option value="{{ exp }}" {% if result.expiry == exp %}selected{% endif %}>{{ exp }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            {% else %}
+            <label>
+              Expiry Date
+              <input type="text" name="expiry" value="{{ form_data.expiry }}" placeholder="auto (nearest)" />
+            </label>
+            {% endif %}
+          </div>
+          <button type="submit" class="btn btn-primary">Load Options Chain</button>
+        </form>
+
+        {% if error %}
+        <div class="message error">{{ error }}</div>
+        {% endif %}
+
+        {% if result %}
+        <section class="result options-result">
+          <div class="result-header">
+            <div>
+              <span class="symbol">{{ result.symbol }}</span>
+              <span class="name-sub">{{ result.name }}</span>
+            </div>
+            <div class="opts-meta">
+              <span class="stat-pill">Price <strong>${{ "%.2f" | format(result.current_price) }}</strong></span>
+              <span class="stat-pill">Expiry <strong>{{ result.expiry }}</strong></span>
+              <span class="stat-pill">DTE <strong>{{ result.days_to_expiry }}d</strong></span>
+            </div>
+          </div>
+
+          <!-- IV Skew Chart -->
+          <div id="iv-chart"></div>
+
+          <!-- Options Chain -->
+          <div class="chain-wrap">
+            <!-- Calls -->
+            <div class="chain-side">
+              <h3 class="chain-title call-title">Calls</h3>
+              <table class="chain-table">
+                <thead>
+                  <tr>
+                    <th>Strike</th>
+                    <th>Bid</th>
+                    <th>Ask</th>
+                    <th>Vol</th>
+                    <th>OI</th>
+                    <th>IV%</th>
+                    <th title="Delta">&Delta;</th>
+                    <th title="Theta">&Theta;</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for c in result.calls %}
+                  <tr class="{{ 'itm' if c.itm else '' }}">
+                    <td class="strike-col">${{ "%.2f" | format(c.strike) }}</td>
+                    <td>{{ c.bid }}</td>
+                    <td>{{ c.ask }}</td>
+                    <td>{{ "{:,}".format(c.volume) }}</td>
+                    <td>{{ "{:,}".format(c.oi) }}</td>
+                    <td>{{ c.iv }}%</td>
+                    <td>{{ c.delta if c.delta is defined else "—" }}</td>
+                    <td>{{ c.theta if c.theta is defined else "—" }}</td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Puts -->
+            <div class="chain-side">
+              <h3 class="chain-title put-title">Puts</h3>
+              <table class="chain-table">
+                <thead>
+                  <tr>
+                    <th>Strike</th>
+                    <th>Bid</th>
+                    <th>Ask</th>
+                    <th>Vol</th>
+                    <th>OI</th>
+                    <th>IV%</th>
+                    <th title="Delta">&Delta;</th>
+                    <th title="Theta">&Theta;</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for p in result.puts %}
+                  <tr class="{{ 'itm' if p.itm else '' }}">
+                    <td class="strike-col">${{ "%.2f" | format(p.strike) }}</td>
+                    <td>{{ p.bid }}</td>
+                    <td>{{ p.ask }}</td>
+                    <td>{{ "{:,}".format(p.volume) }}</td>
+                    <td>{{ "{:,}".format(p.oi) }}</td>
+                    <td>{{ p.iv }}%</td>
+                    <td>{{ p.delta if p.delta is defined else "—" }}</td>
+                    <td>{{ p.theta if p.theta is defined else "—" }}</td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <script>
+          (function () {
+            const strikes = {{ result.iv_strikes | tojson }};
+            const callIV  = {{ result.iv_calls | tojson }};
+            const putIV   = {{ result.iv_puts | tojson }};
+            const spot    = {{ result.current_price }};
+
+            const callLine = {
+              x: strikes, y: callIV, type: "scatter", mode: "lines+markers",
+              name: "Call IV", line: { color: "#16a34a", width: 2 },
+              marker: { size: 4 },
+            };
+            const putLine = {
+              x: strikes, y: putIV, type: "scatter", mode: "lines+markers",
+              name: "Put IV", line: { color: "#dc2626", width: 2 },
+              marker: { size: 4 },
+            };
+            const atm = {
+              x: [spot, spot], y: [0, Math.max(...callIV, ...putIV) * 1.1],
+              type: "scatter", mode: "lines", name: "ATM",
+              line: { color: "#2e7dff", width: 1.5, dash: "dot" },
+            };
+
+            Plotly.newPlot("iv-chart", [callLine, putLine, atm], {
+              title: { text: "Implied Volatility Skew", font: { size: 14 } },
+              margin: { t: 40, r: 20, b: 50, l: 55 },
+              paper_bgcolor: "transparent", plot_bgcolor: "transparent",
+              xaxis: { title: "Strike", gridcolor: "#e5eaf2" },
+              yaxis: { title: "IV %", gridcolor: "#e5eaf2" },
+              legend: { orientation: "h", y: -0.22 },
+              font: { family: "Arial, sans-serif", size: 12, color: "#111" },
+            }, { responsive: true, displayModeBar: false });
+          })();
+        </script>
+        {% endif %}
+      </main>
+    </div>
+
+    <footer class="page-footer">
+      <small>MarketSage &mdash; Not financial advice.</small>
+    </footer>
+  </body>
+</html>
