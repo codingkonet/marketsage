@@ -3,23 +3,31 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Options Market — MarketSage</title>
+    <title>Options Market — ChoiceCLASH</title>
+    <script>
+      (function(){ const t=localStorage.getItem("cc-theme")||"light"; document.documentElement.setAttribute("data-theme",t); })();
+    </script>
     <link rel="stylesheet" href="/static/style.css" />
     <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
   </head>
   <body>
     <nav class="topnav">
-      <a href="/" class="nav-brand">MarketSage</a>
+      <a href="/" class="nav-brand">ChoiceCLASH</a>
       <div class="nav-links">
         <a href="/forex" class="nav-link">Forex</a>
         <a href="/options" class="nav-link active">Options</a>
+        <a href="/dashboard" class="nav-link">Dashboard</a>
+        <a href="/watchlist" class="nav-link">Watchlist</a>
+      </div>
+      <div class="nav-right">
+        <button id="theme-btn" onclick="toggleTheme()">☾ Dark</button>
       </div>
     </nav>
 
     <div class="page page-wide">
       <header>
         <h1>Options Market Analysis</h1>
-        <p>Live options chains, Black-Scholes Greeks, and IV skew for US stocks &amp; ETFs.</p>
+        <p>Live chains, Greeks, IV skew, payoff diagrams, and market intelligence for US stocks &amp; ETFs.</p>
       </header>
       <main>
         <form method="post" class="control-form">
@@ -44,7 +52,16 @@
             </label>
             {% endif %}
           </div>
-          <button type="submit" class="btn btn-primary">Load Options Chain</button>
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Load Options Chain</button>
+            {% if result %}
+            <a href="/api/export/options?symbol={{ result.symbol }}&expiry={{ result.expiry }}"
+               class="btn btn-outline btn-sm">⬇ Export CSV</a>
+            <button type="button" id="wl-btn" class="btn btn-outline btn-sm"
+                    data-symbol="{{ result.symbol }}"
+                    onclick="toggleWatchlist('{{ result.symbol }}')">☆ Watchlist</button>
+            {% endif %}
+          </div>
         </form>
 
         {% if error %}
@@ -65,71 +82,98 @@
             </div>
           </div>
 
-          <!-- IV Skew Chart -->
+          <!-- IV Skew -->
           <div id="iv-chart"></div>
+
+          <!-- Payoff Diagram -->
+          <div class="result-section">
+            <h3>Payoff at Expiry — ATM Call (K={{ result.atm_call_strike }}, prem={{ result.atm_call_premium }}) &amp; Put (K={{ result.atm_put_strike }}, prem={{ result.atm_put_premium }})</h3>
+            <div id="payoff-chart"></div>
+          </div>
+
+          <!-- Market Intelligence -->
+          <div class="intel-grid">
+            <div class="intel-block">
+              <h3>Put/Call Ratio</h3>
+              <div class="intel-value">{{ result.put_call_ratio }}</div>
+              <div class="intel-note">
+                {% if result.put_call_ratio > 1 %}Bearish sentiment (more puts than calls)
+                {% elif result.put_call_ratio < 0.7 %}Bullish sentiment (more calls than puts)
+                {% else %}Neutral sentiment{% endif %}
+              </div>
+            </div>
+            <div class="intel-block">
+              <h3>Max Pain</h3>
+              <div class="intel-value">${{ "%.2f" | format(result.max_pain) }}</div>
+              <div class="intel-note">Strike where option sellers lose least at expiry</div>
+            </div>
+          </div>
+
+          <!-- Unusual Activity -->
+          {% if result.unusual %}
+          <div class="result-section">
+            <h3>Unusual Activity</h3>
+            <table class="scanner-table">
+              <thead>
+                <tr>
+                  <th>Type</th><th>Strike</th><th>Volume</th><th>OI</th><th>Vol/OI</th><th>IV%</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for u in result.unusual %}
+                <tr>
+                  <td class="tag-{{ u.type }}">{{ u.type.upper() }}</td>
+                  <td>${{ "%.2f" | format(u.strike) }}</td>
+                  <td>{{ "{:,}".format(u.volume) }}</td>
+                  <td>{{ "{:,}".format(u.oi) }}</td>
+                  <td>{{ u.ratio }}</td>
+                  <td>{{ u.iv }}%</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% endif %}
 
           <!-- Options Chain -->
           <div class="chain-wrap">
-            <!-- Calls -->
             <div class="chain-side">
               <h3 class="chain-title call-title">Calls</h3>
               <table class="chain-table">
                 <thead>
-                  <tr>
-                    <th>Strike</th>
-                    <th>Bid</th>
-                    <th>Ask</th>
-                    <th>Vol</th>
-                    <th>OI</th>
-                    <th>IV%</th>
-                    <th title="Delta">&Delta;</th>
-                    <th title="Theta">&Theta;</th>
-                  </tr>
+                  <tr><th>Strike</th><th>Bid</th><th>Ask</th><th>Vol</th><th>OI</th><th>IV%</th><th title="Delta">Δ</th><th title="Theta">Θ</th></tr>
                 </thead>
                 <tbody>
                   {% for c in result.calls %}
                   <tr class="{{ 'itm' if c.itm else '' }}">
                     <td class="strike-col">${{ "%.2f" | format(c.strike) }}</td>
-                    <td>{{ c.bid }}</td>
-                    <td>{{ c.ask }}</td>
+                    <td>{{ c.bid }}</td><td>{{ c.ask }}</td>
                     <td>{{ "{:,}".format(c.volume) }}</td>
                     <td>{{ "{:,}".format(c.oi) }}</td>
                     <td>{{ c.iv }}%</td>
-                    <td>{{ c.delta if c.delta is defined else "—" }}</td>
-                    <td>{{ c.theta if c.theta is defined else "—" }}</td>
+                    <td>{{ c.delta if 'delta' in c else '—' }}</td>
+                    <td>{{ c.theta if 'theta' in c else '—' }}</td>
                   </tr>
                   {% endfor %}
                 </tbody>
               </table>
             </div>
-
-            <!-- Puts -->
             <div class="chain-side">
               <h3 class="chain-title put-title">Puts</h3>
               <table class="chain-table">
                 <thead>
-                  <tr>
-                    <th>Strike</th>
-                    <th>Bid</th>
-                    <th>Ask</th>
-                    <th>Vol</th>
-                    <th>OI</th>
-                    <th>IV%</th>
-                    <th title="Delta">&Delta;</th>
-                    <th title="Theta">&Theta;</th>
-                  </tr>
+                  <tr><th>Strike</th><th>Bid</th><th>Ask</th><th>Vol</th><th>OI</th><th>IV%</th><th title="Delta">Δ</th><th title="Theta">Θ</th></tr>
                 </thead>
                 <tbody>
                   {% for p in result.puts %}
                   <tr class="{{ 'itm' if p.itm else '' }}">
                     <td class="strike-col">${{ "%.2f" | format(p.strike) }}</td>
-                    <td>{{ p.bid }}</td>
-                    <td>{{ p.ask }}</td>
+                    <td>{{ p.bid }}</td><td>{{ p.ask }}</td>
                     <td>{{ "{:,}".format(p.volume) }}</td>
                     <td>{{ "{:,}".format(p.oi) }}</td>
                     <td>{{ p.iv }}%</td>
-                    <td>{{ p.delta if p.delta is defined else "—" }}</td>
-                    <td>{{ p.theta if p.theta is defined else "—" }}</td>
+                    <td>{{ p.delta if 'delta' in p else '—' }}</td>
+                    <td>{{ p.theta if 'theta' in p else '—' }}</td>
                   </tr>
                   {% endfor %}
                 </tbody>
@@ -140,44 +184,63 @@
 
         <script>
           (function () {
+            const isDark  = document.documentElement.getAttribute("data-theme") === "dark";
+            const gridCol = isDark ? "#1e293b" : "#e5eaf2";
+            const textCol = isDark ? "#94a3b8" : "#111";
+            const baseLayout = {
+              paper_bgcolor:"transparent", plot_bgcolor:"transparent",
+              xaxis:{gridcolor:gridCol,tickfont:{color:textCol}},
+              yaxis:{gridcolor:gridCol,tickfont:{color:textCol}},
+              legend:{orientation:"h",y:-0.22,font:{color:textCol}},
+              font:{family:"Arial,sans-serif",size:11,color:textCol},
+            };
+            const cfg = {responsive:true, displayModeBar:false};
+
+            // IV Skew
             const strikes = {{ result.iv_strikes | tojson }};
             const callIV  = {{ result.iv_calls | tojson }};
             const putIV   = {{ result.iv_puts | tojson }};
             const spot    = {{ result.current_price }};
+            const maxIV   = Math.max(...callIV.filter(v=>v>0), ...putIV.filter(v=>v>0), 1);
 
-            const callLine = {
-              x: strikes, y: callIV, type: "scatter", mode: "lines+markers",
-              name: "Call IV", line: { color: "#16a34a", width: 2 },
-              marker: { size: 4 },
-            };
-            const putLine = {
-              x: strikes, y: putIV, type: "scatter", mode: "lines+markers",
-              name: "Put IV", line: { color: "#dc2626", width: 2 },
-              marker: { size: 4 },
-            };
-            const atm = {
-              x: [spot, spot], y: [0, Math.max(...callIV, ...putIV) * 1.1],
-              type: "scatter", mode: "lines", name: "ATM",
-              line: { color: "#2e7dff", width: 1.5, dash: "dot" },
-            };
+            Plotly.newPlot("iv-chart", [
+              {x:strikes,y:callIV,type:"scatter",mode:"lines+markers",name:"Call IV",line:{color:"#16a34a",width:2},marker:{size:3}},
+              {x:strikes,y:putIV, type:"scatter",mode:"lines+markers",name:"Put IV", line:{color:"#dc2626",width:2},marker:{size:3}},
+              {x:[spot,spot],y:[0,maxIV*1.1],type:"scatter",mode:"lines",name:"ATM",line:{color:"#2e7dff",width:1.5,dash:"dot"}},
+            ], {
+              ...baseLayout,
+              title:{text:"Implied Volatility Skew",font:{size:13,color:textCol}},
+              margin:{t:36,r:16,b:50,l:50},
+              xaxis:{...baseLayout.xaxis,title:"Strike"},
+              yaxis:{...baseLayout.yaxis,title:"IV %"},
+            }, cfg);
 
-            Plotly.newPlot("iv-chart", [callLine, putLine, atm], {
-              title: { text: "Implied Volatility Skew", font: { size: 14 } },
-              margin: { t: 40, r: 20, b: 50, l: 55 },
-              paper_bgcolor: "transparent", plot_bgcolor: "transparent",
-              xaxis: { title: "Strike", gridcolor: "#e5eaf2" },
-              yaxis: { title: "IV %", gridcolor: "#e5eaf2" },
-              legend: { orientation: "h", y: -0.22 },
-              font: { family: "Arial, sans-serif", size: 12, color: "#111" },
-            }, { responsive: true, displayModeBar: false });
+            // Payoff
+            const pSpots = {{ result.payoff_spots | tojson }};
+            const pCall  = {{ result.payoff_call | tojson }};
+            const pPut   = {{ result.payoff_put | tojson }};
+            const pStrad = {{ result.payoff_straddle | tojson }};
+
+            Plotly.newPlot("payoff-chart", [
+              {x:pSpots,y:pCall, type:"scatter",mode:"lines",name:"Long Call", line:{color:"#16a34a",width:2}},
+              {x:pSpots,y:pPut,  type:"scatter",mode:"lines",name:"Long Put",  line:{color:"#dc2626",width:2}},
+              {x:pSpots,y:pStrad,type:"scatter",mode:"lines",name:"Straddle",  line:{color:"#2e7dff",width:2,dash:"dash"}},
+              {x:[spot,spot],y:[Math.min(...pStrad)*1.1,Math.max(...pStrad)*1.1],
+               type:"scatter",mode:"lines",name:"Current Price",line:{color:"#f59e0b",width:1.5,dash:"dot"}},
+              {x:pSpots,y:Array(pSpots.length).fill(0),type:"scatter",mode:"lines",name:"Break-even",
+               line:{color:isDark?"#334155":"#cbd5e1",width:1}},
+            ], {
+              ...baseLayout,
+              margin:{t:8,r:16,b:44,l:55},
+              xaxis:{...baseLayout.xaxis,title:"Spot Price at Expiry"},
+              yaxis:{...baseLayout.yaxis,title:"P&L ($)"},
+            }, cfg);
           })();
         </script>
         {% endif %}
       </main>
     </div>
-
-    <footer class="page-footer">
-      <small>MarketSage &mdash; Not financial advice.</small>
-    </footer>
+    <footer class="page-footer"><small>ChoiceCLASH — Not financial advice.</small></footer>
+    <script src="/static/app.js"></script>
   </body>
 </html>

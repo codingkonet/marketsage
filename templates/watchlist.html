@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Watchlist — ChoiceCLASH</title>
+    <script>
+      (function(){ const t=localStorage.getItem("cc-theme")||"light"; document.documentElement.setAttribute("data-theme",t); })();
+    </script>
+    <link rel="stylesheet" href="/static/style.css" />
+  </head>
+  <body>
+    <nav class="topnav">
+      <a href="/" class="nav-brand">ChoiceCLASH</a>
+      <div class="nav-links">
+        <a href="/forex" class="nav-link">Forex</a>
+        <a href="/options" class="nav-link">Options</a>
+        <a href="/dashboard" class="nav-link">Dashboard</a>
+        <a href="/watchlist" class="nav-link active">Watchlist</a>
+      </div>
+      <div class="nav-right">
+        <button id="theme-btn" onclick="toggleTheme()">☾ Dark</button>
+      </div>
+    </nav>
+
+    <div class="page">
+      <header>
+        <h1>Watchlist</h1>
+        <p>Your saved symbols — prices refresh every 30 seconds.</p>
+      </header>
+      <main>
+        <div style="display:flex;gap:8px;margin-bottom:4px;">
+          <input id="add-input" type="text" placeholder="Add symbol (e.g. EURUSD=X, AAPL)"
+                 style="padding:8px 11px;border:1px solid var(--border);border-radius:7px;font-size:13.5px;background:var(--card);color:var(--text);flex:1;" />
+          <button class="btn btn-primary" onclick="addFromInput()">Add</button>
+        </div>
+
+        <div class="wl-grid" id="wl-container">
+          <div style="color:var(--muted);padding:20px 0;font-size:13.5px;">Loading…</div>
+        </div>
+      </main>
+    </div>
+
+    <footer class="page-footer"><small>ChoiceCLASH — Not financial advice.</small></footer>
+
+    <script src="/static/app.js"></script>
+    <script>
+      function addFromInput() {
+        const val = document.getElementById("add-input").value.trim().toUpperCase();
+        if (val) { addToWatchlist(val); renderWatchlistPage(); document.getElementById("add-input").value = ""; }
+      }
+      document.getElementById("add-input").addEventListener("keydown", e => { if (e.key === "Enter") addFromInput(); });
+    </script>
+  </body>
+</html>

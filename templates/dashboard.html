@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Dashboard — ChoiceCLASH</title>
+    <script>
+      (function(){ const t=localStorage.getItem("cc-theme")||"light"; document.documentElement.setAttribute("data-theme",t); })();
+    </script>
+    <link rel="stylesheet" href="/static/style.css" />
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+  </head>
+  <body>
+    <nav class="topnav">
+      <a href="/" class="nav-brand">ChoiceCLASH</a>
+      <div class="nav-links">
+        <a href="/forex" class="nav-link">Forex</a>
+        <a href="/options" class="nav-link">Options</a>
+        <a href="/dashboard" class="nav-link active">Dashboard</a>
+        <a href="/watchlist" class="nav-link">Watchlist</a>
+      </div>
+      <div class="nav-right">
+        <button id="theme-btn" onclick="toggleTheme()">☾ Dark</button>
+      </div>
+    </nav>
+
+    <div class="page page-wide">
+      <header>
+        <h1>Multi-Pair Dashboard</h1>
+        <p>Analyze up to 8 currency pairs at once and compare with a correlation matrix.</p>
+      </header>
+      <main>
+        <form method="post" class="control-form">
+          <label>
+            Pairs <span class="hint">(comma-separated, max 8)</span>
+            <input type="text" name="pairs" value="{{ form_data.pairs }}" />
+          </label>
+          <div class="form-row" style="grid-template-columns:1fr 1fr">
+            <label>
+              Period
+              <select name="period">
+                {% for p in ["3mo","6mo","1y"] %}
+                <option value="{{ p }}" {% if form_data.period == p %}selected{% endif %}>{{ p }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <label>
+              Interval
+              <select name="interval">
+                {% for iv in ["1d","4h"] %}
+                <option value="{{ iv }}" {% if form_data.interval == iv %}selected{% endif %}>{{ iv }}</option>
+                {% endfor %}
+              </select>
+            </label>
+          </div>
+          <button type="submit" class="btn btn-primary">Analyze All</button>
+        </form>
+
+        {% if error %}
+        <div class="message error">{{ error }}</div>
+        {% endif %}
+
+        {% if results %}
+        <table class="dashboard-table">
+          <thead>
+            <tr>
+              <th>Pair</th>
+              <th>Direction</th>
+              <th>Last Close</th>
+              <th>Predicted</th>
+              <th>Change</th>
+              <th>MAE</th>
+              <th>RMSE</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in results %}
+            {% if row.ok %}
+            {% set r = row.result %}
+            <tr>
+              <td>{{ r.symbol }}</td>
+              <td><span class="badge badge-{{ r.direction | lower }}">{{ r.direction }}</span></td>
+              <td>{{ "%.5f" | format(r.last_close) }}</td>
+              <td>{{ "%.5f" | format(r.next_prediction) }}</td>
+              <td class="{{ 'positive' if r.predicted_change > 0 else 'negative' }}">
+                {{ "%+.5f" | format(r.predicted_change) }}
+              </td>
+              <td>{{ "%.5f" | format(r.metrics.mae) }}</td>
+              <td>{{ "%.5f" | format(r.metrics.rmse) }}</td>
+              <td><a href="/forex?pair={{ r.symbol }}" class="btn btn-sm btn-primary">Details →</a></td>
+            </tr>
+            {% else %}
+            <tr>
+              <td>{{ row.symbol }}</td>
+              <td colspan="7" style="color:var(--red);font-size:12px;">{{ row.error }}</td>
+            </tr>
+            {% endif %}
+            {% endfor %}
+          </tbody>
+        </table>
+        {% endif %}
+
+        {% if corr_data %}
+        <h2 style="margin:28px 0 0;font-size:16px;">Correlation Matrix (daily returns)</h2>
+        <div id="corr-chart"></div>
+
+        <script>
+          (function(){
+            const isDark  = document.documentElement.getAttribute("data-theme") === "dark";
+            const textCol = isDark ? "#94a3b8" : "#111";
+            const labels = {{ corr_data.labels | tojson }};
+            const values = {{ corr_data.values | tojson }};
+            Plotly.newPlot("corr-chart", [{
+              z: values,
+              x: labels, y: labels,
+              type: "heatmap",
+              colorscale: "RdBu",
+              zmid: 0, zmin: -1, zmax: 1,
+              text: values.map(row => row.map(v => v.toFixed(2))),
+              texttemplate: "%{text}",
+              textfont: {size: 11, color: textCol},
+              showscale: true,
+            }], {
+              paper_bgcolor:"transparent", plot_bgcolor:"transparent",
+              margin:{t:8,r:16,b:60,l:80},
+              xaxis:{tickfont:{color:textCol}},
+              yaxis:{tickfont:{color:textCol},autorange:"reversed"},
+              font:{family:"Arial,sans-serif",size:11,color:textCol},
+            }, {responsive:true, displayModeBar:false});
+          })();
+        </script>
+        {% endif %}
+      </main>
+    </div>
+    <footer class="page-footer"><small>ChoiceCLASH — Not financial advice.</small></footer>
+    <script src="/static/app.js"></script>
+  </body>
+</html>

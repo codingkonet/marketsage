@@ -3,16 +3,24 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Forex Analysis — MarketSage</title>
+    <title>Forex Analysis — ChoiceCLASH</title>
+    <script>
+      (function(){ const t=localStorage.getItem("cc-theme")||"light"; document.documentElement.setAttribute("data-theme",t); })();
+    </script>
     <link rel="stylesheet" href="/static/style.css" />
     <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
   </head>
   <body>
     <nav class="topnav">
-      <a href="/" class="nav-brand">MarketSage</a>
+      <a href="/" class="nav-brand">ChoiceCLASH</a>
       <div class="nav-links">
         <a href="/forex" class="nav-link active">Forex</a>
         <a href="/options" class="nav-link">Options</a>
+        <a href="/dashboard" class="nav-link">Dashboard</a>
+        <a href="/watchlist" class="nav-link">Watchlist</a>
+      </div>
+      <div class="nav-right">
+        <button id="theme-btn" onclick="toggleTheme()">☾ Dark</button>
       </div>
     </nav>
 
@@ -23,7 +31,7 @@
       </header>
       <main>
         <form method="post" class="control-form">
-          <div class="form-row">
+          <div class="form-row form-row-4">
             <label>
               Pair
               <input type="text" name="pair" value="{{ form_data.pair }}" placeholder="EURUSD=X" />
@@ -44,8 +52,27 @@
                 {% endfor %}
               </select>
             </label>
+            <label>
+              Model
+              <select name="model_type">
+                {% for mt in model_types %}
+                <option value="{{ mt }}" {% if form_data.model_type == mt %}selected{% endif %}>
+                  {{ {"random_forest":"Random Forest","xgboost":"XGBoost","neural_net":"Neural Net"}[mt] }}
+                </option>
+                {% endfor %}
+              </select>
+            </label>
           </div>
-          <button type="submit" class="btn btn-primary">Run Analysis</button>
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Run Analysis</button>
+            {% if result %}
+            <a href="/api/export/forex?pair={{ result.symbol }}&period={{ form_data.period }}&interval={{ form_data.interval }}"
+               class="btn btn-outline btn-sm">⬇ Export CSV</a>
+            <button type="button" id="wl-btn" class="btn btn-outline btn-sm"
+                    data-symbol="{{ result.symbol }}"
+                    onclick="toggleWatchlist('{{ result.symbol }}')">☆ Watchlist</button>
+            {% endif %}
+          </div>
         </form>
 
         {% if error %}
@@ -55,12 +82,17 @@
         {% if result %}
         <section class="result">
           <div class="result-header">
-            <span class="symbol">{{ result.symbol }}</span>
+            <div>
+              <span class="symbol">{{ result.symbol }}</span>
+              <span style="font-size:12px;color:var(--muted);margin-left:8px;">{{ result.model_type.replace("_"," ").title() }}</span>
+            </div>
             <span class="badge badge-{{ result.direction | lower }}">{{ result.direction }}</span>
           </div>
 
+          <!-- Price chart -->
           <div id="price-chart"></div>
 
+          <!-- Stats -->
           <div class="stats-grid">
             <div class="stat">
               <div class="stat-label">Last Close</div>
@@ -72,7 +104,7 @@
             </div>
             <div class="stat">
               <div class="stat-label">Confidence ±</div>
-              <div class="stat-value">{{ "%.5f" | format(result.confidence) }}</div>
+              <div class="stat-value">{{ "%.5f" | format(result.confidence) if result.confidence else "N/A" }}</div>
             </div>
             <div class="stat">
               <div class="stat-label">Change</div>
@@ -97,58 +129,112 @@
               <div class="stat-value">{{ "%.5f" | format(result.metrics.rmse) }}</div>
             </div>
           </div>
+
+          <!-- Backtest -->
+          {% if result.backtest %}
+          <div class="result-section">
+            <h3>Backtest (out-of-sample)</h3>
+            <div id="backtest-chart"></div>
+            <div class="backtest-stats">
+              <div class="bstat">
+                <span class="bstat-label">Total Return</span>
+                <span class="bstat-value {{ 'positive' if result.backtest.total_return > 0 else 'negative' }}">
+                  {{ "%+.2f" | format(result.backtest.total_return * 100) }}%
+                </span>
+              </div>
+              <div class="bstat">
+                <span class="bstat-label">Win Rate</span>
+                <span class="bstat-value">{{ "%.1f" | format(result.backtest.win_rate * 100) }}%</span>
+              </div>
+              <div class="bstat">
+                <span class="bstat-label">Sharpe</span>
+                <span class="bstat-value">{{ result.backtest.sharpe }}</span>
+              </div>
+              <div class="bstat">
+                <span class="bstat-label">Max Drawdown</span>
+                <span class="bstat-value negative">{{ "%.2f" | format(result.backtest.max_drawdown * 100) }}%</span>
+              </div>
+              <div class="bstat">
+                <span class="bstat-label">Trades</span>
+                <span class="bstat-value">{{ result.backtest.n_trades }}</span>
+              </div>
+            </div>
+          </div>
+          {% endif %}
+
+          <!-- Feature importance -->
+          {% if result.feature_importance %}
+          <div class="result-section">
+            <h3>Feature Importance</h3>
+            <div id="fi-chart"></div>
+          </div>
+          {% endif %}
         </section>
 
         <script>
           (function () {
-            const dates = {{ result.chart_dates | tojson }};
-            const prices = {{ result.chart_prices | tojson }};
-            const nextPrice = {{ result.next_prediction }};
-            const conf = {{ result.confidence }};
-            const bbUpper = {{ result.bb_upper }};
-            const bbLower = {{ result.bb_lower }};
-            const isUp = {{ "true" if result.direction == "UP" else "false" }};
+            const dates   = {{ result.chart_dates | tojson }};
+            const prices  = {{ result.chart_prices | tojson }};
+            const nextP   = {{ result.next_prediction }};
+            const conf    = {{ result.confidence }};
+            const bbU     = {{ result.bb_upper }};
+            const bbL     = {{ result.bb_lower }};
+            const isUp    = {{ "true" if result.direction == "UP" else "false" }};
+            const isDark  = document.documentElement.getAttribute("data-theme") === "dark";
+            const gridCol = isDark ? "#1e293b" : "#e5eaf2";
+            const textCol = isDark ? "#94a3b8" : "#111";
 
-            const predDate = "Forecast";
-            const priceLine = {
-              x: dates, y: prices, type: "scatter", mode: "lines",
-              name: "Close", line: { color: "#2e7dff", width: 2 },
+            const layout = {
+              margin: {t:8,r:16,b:40,l:55},
+              paper_bgcolor:"transparent", plot_bgcolor:"transparent",
+              xaxis:{gridcolor:gridCol,tickangle:-30,tickfont:{color:textCol}},
+              yaxis:{gridcolor:gridCol,tickfont:{color:textCol}},
+              legend:{orientation:"h",y:-0.22,font:{color:textCol}},
+              font:{family:"Arial,sans-serif",size:11,color:textCol},
             };
-            const predMarker = {
-              x: [predDate], y: [nextPrice], type: "scatter", mode: "markers",
-              name: "Prediction",
-              error_y: { type: "data", array: [conf], visible: true, color: isUp ? "#16a34a" : "#dc2626" },
-              marker: { size: 12, color: isUp ? "#16a34a" : "#dc2626", symbol: isUp ? "triangle-up" : "triangle-down" },
-            };
-            const lastDate = dates[dates.length - 1];
-            const bbUpperLine = {
-              x: [dates[0], lastDate], y: [bbUpper, bbUpper], type: "scatter", mode: "lines",
-              name: "BB Upper", line: { color: "#f59e0b", width: 1, dash: "dot" },
-            };
-            const bbLowerLine = {
-              x: [dates[0], lastDate], y: [bbLower, bbLower], type: "scatter", mode: "lines",
-              name: "BB Lower", line: { color: "#f59e0b", width: 1, dash: "dot" },
-            };
-            Plotly.newPlot("price-chart",
-              [priceLine, bbUpperLine, bbLowerLine, predMarker],
-              {
-                margin: { t: 10, r: 20, b: 40, l: 60 },
-                paper_bgcolor: "transparent", plot_bgcolor: "transparent",
-                xaxis: { gridcolor: "#e5eaf2", tickangle: -30 },
-                yaxis: { gridcolor: "#e5eaf2" },
-                legend: { orientation: "h", y: -0.22 },
-                font: { family: "Arial, sans-serif", size: 12, color: "#111" },
-              },
-              { responsive: true, displayModeBar: false }
-            );
+            const cfg = {responsive:true, displayModeBar:false};
+
+            Plotly.newPlot("price-chart", [
+              {x:dates,y:prices,type:"scatter",mode:"lines",name:"Close",line:{color:"#2e7dff",width:2}},
+              {x:[dates[0],dates.at(-1)],y:[bbU,bbU],type:"scatter",mode:"lines",name:"BB Upper",line:{color:"#f59e0b",width:1,dash:"dot"}},
+              {x:[dates[0],dates.at(-1)],y:[bbL,bbL],type:"scatter",mode:"lines",name:"BB Lower",line:{color:"#f59e0b",width:1,dash:"dot"}},
+              {x:["Forecast"],y:[nextP],type:"scatter",mode:"markers",name:"Prediction",
+               error_y:{type:"data",array:[conf],visible:conf>0,color:isUp?"#16a34a":"#dc2626"},
+               marker:{size:11,color:isUp?"#16a34a":"#dc2626",symbol:isUp?"triangle-up":"triangle-down"}},
+            ], layout, cfg);
+
+            {% if result.backtest %}
+            const btDates  = {{ result.backtest.dates | tojson }};
+            const btEquity = {{ result.backtest.equity | tojson }};
+            Plotly.newPlot("backtest-chart", [
+              {x:btDates,y:btEquity,type:"scatter",mode:"lines",name:"Equity",fill:"tozeroy",
+               line:{color:"#2e7dff",width:2},fillcolor:"rgba(46,125,255,0.08)"},
+              {x:[btDates[0],btDates.at(-1)],y:[1,1],type:"scatter",mode:"lines",name:"Baseline",
+               line:{color:"#94a3b8",width:1,dash:"dot"}},
+            ], {...layout, margin:{t:4,r:16,b:36,l:55}}, cfg);
+            {% endif %}
+
+            {% if result.feature_importance %}
+            const fi = {{ result.feature_importance | tojson }};
+            const fiSorted = Object.entries(fi).sort((a,b)=>b[1]-a[1]);
+            Plotly.newPlot("fi-chart", [{
+              x: fiSorted.map(d=>d[1]),
+              y: fiSorted.map(d=>d[0]),
+              type:"bar", orientation:"h",
+              marker:{color:"#2e7dff"},
+            }], {
+              ...layout,
+              margin:{t:4,r:16,b:24,l:100},
+              xaxis:{...layout.xaxis,title:"Importance"},
+              yaxis:{...layout.yaxis,tickfont:{size:11,color:textCol}},
+            }, cfg);
+            {% endif %}
           })();
         </script>
         {% endif %}
       </main>
     </div>
-
-    <footer class="page-footer">
-      <small>MarketSage &mdash; Not financial advice.</small>
-    </footer>
+    <footer class="page-footer"><small>ChoiceCLASH — Not financial advice.</small></footer>
+    <script src="/static/app.js"></script>
   </body>
 </html>
