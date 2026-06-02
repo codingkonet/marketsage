@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Alerts — ChoiceCLASH</title>
+    <script>(function(){ const t=localStorage.getItem("cc-theme")||"light"; document.documentElement.setAttribute("data-theme",t); })();</script>
+    <link rel="stylesheet" href="/static/style.css" />
+  </head>
+  <body>
+    <nav class="topnav">
+      <a href="/" class="nav-brand">ChoiceCLASH</a>
+      <div class="nav-links">
+        <a href="/forex"      class="nav-link">Forex</a>
+        <a href="/options"    class="nav-link">Options</a>
+        <a href="/dashboard"  class="nav-link">Dashboard</a>
+        <a href="/watchlist"  class="nav-link">Watchlist</a>
+        <a href="/portfolio"  class="nav-link">Portfolio</a>
+        <a href="/alerts"     class="nav-link active">Alerts</a>
+      </div>
+      <div class="nav-right">
+        <button id="theme-btn" onclick="toggleTheme()">☾ Dark</button>
+      </div>
+    </nav>
+
+    <div class="page">
+      <header>
+        <h1>Price Alerts</h1>
+        <p>Get browser notifications when a price crosses your target. Checked every 60 seconds.</p>
+      </header>
+      <main>
+        <!-- Create alert form -->
+        <div class="control-form">
+          <div class="form-row">
+            <label>
+              Symbol
+              <input id="al-symbol" type="text" placeholder="EURUSD=X or AAPL" />
+            </label>
+            <label>
+              Condition
+              <select id="al-condition">
+                <option value="above">Rises above</option>
+                <option value="below">Falls below</option>
+              </select>
+            </label>
+            <label>
+              Target Price
+              <input id="al-price" type="number" placeholder="1.1000" step="any" />
+            </label>
+          </div>
+          <div class="form-actions">
+            <button class="btn btn-primary" onclick="addAlertFromForm()">Set Alert</button>
+            <button class="btn btn-outline btn-sm" onclick="requestNotifications()">🔔 Enable Notifications</button>
+          </div>
+        </div>
+
+        <div class="alert-list" id="alert-list"></div>
+      </main>
+    </div>
+
+    <footer class="page-footer"><small>ChoiceCLASH — Not financial advice.</small></footer>
+    <script src="/static/app.js"></script>
+    <script>
+      function addAlertFromForm() {
+        const sym  = document.getElementById("al-symbol").value.trim();
+        const cond = document.getElementById("al-condition").value;
+        const price = document.getElementById("al-price").value;
+        if (!sym || !price) { showToast("Fill in all fields", "error"); return; }
+        addAlert(sym, cond, price);
+        document.getElementById("al-symbol").value = "";
+        document.getElementById("al-price").value  = "";
+      }
+    </script>
+  </body>
+</html>

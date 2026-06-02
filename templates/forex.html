@@ -4,9 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Forex Analysis — ChoiceCLASH</title>
-    <script>
-      (function(){ const t=localStorage.getItem("cc-theme")||"light"; document.documentElement.setAttribute("data-theme",t); })();
-    </script>
+    <script>(function(){ const t=localStorage.getItem("cc-theme")||"light"; document.documentElement.setAttribute("data-theme",t); })();</script>
     <link rel="stylesheet" href="/static/style.css" />
     <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
   </head>
@@ -14,10 +12,12 @@
     <nav class="topnav">
       <a href="/" class="nav-brand">ChoiceCLASH</a>
       <div class="nav-links">
-        <a href="/forex" class="nav-link active">Forex</a>
-        <a href="/options" class="nav-link">Options</a>
+        <a href="/forex"     class="nav-link active">Forex</a>
+        <a href="/options"   class="nav-link">Options</a>
         <a href="/dashboard" class="nav-link">Dashboard</a>
         <a href="/watchlist" class="nav-link">Watchlist</a>
+        <a href="/portfolio" class="nav-link">Portfolio</a>
+        <a href="/alerts"    class="nav-link">Alerts</a>
       </div>
       <div class="nav-right">
         <button id="theme-btn" onclick="toggleTheme()">☾ Dark</button>
@@ -27,57 +27,34 @@
     <div class="page">
       <header>
         <h1>Forex Analysis</h1>
-        <p>Machine-learning price forecast for currency pairs.</p>
+        <p>ML price forecasting for currency pairs with backtesting and sentiment.</p>
       </header>
       <main>
         <form method="post" class="control-form">
           <div class="form-row form-row-4">
-            <label>
-              Pair
-              <input type="text" name="pair" value="{{ form_data.pair }}" placeholder="EURUSD=X" />
+            <label>Pair<input type="text" name="pair" value="{{ form_data.pair }}" placeholder="EURUSD=X" /></label>
+            <label>Period
+              <select name="period">{% for p in ["3mo","6mo","1y","2y"] %}<option value="{{ p }}" {% if form_data.period==p %}selected{% endif %}>{{ p }}</option>{% endfor %}</select>
             </label>
-            <label>
-              Period
-              <select name="period">
-                {% for p in ["3mo","6mo","1y","2y"] %}
-                <option value="{{ p }}" {% if form_data.period == p %}selected{% endif %}>{{ p }}</option>
-                {% endfor %}
-              </select>
+            <label>Interval
+              <select name="interval">{% for iv in ["1d","4h","1h"] %}<option value="{{ iv }}" {% if form_data.interval==iv %}selected{% endif %}>{{ iv }}</option>{% endfor %}</select>
             </label>
-            <label>
-              Interval
-              <select name="interval">
-                {% for iv in ["1d","1h","4h"] %}
-                <option value="{{ iv }}" {% if form_data.interval == iv %}selected{% endif %}>{{ iv }}</option>
-                {% endfor %}
-              </select>
-            </label>
-            <label>
-              Model
-              <select name="model_type">
-                {% for mt in model_types %}
-                <option value="{{ mt }}" {% if form_data.model_type == mt %}selected{% endif %}>
-                  {{ {"random_forest":"Random Forest","xgboost":"XGBoost","neural_net":"Neural Net"}[mt] }}
-                </option>
-                {% endfor %}
-              </select>
+            <label>Model
+              <select name="model_type">{% for mt in model_types %}<option value="{{ mt }}" {% if form_data.model_type==mt %}selected{% endif %}>{{ {"random_forest":"Random Forest","xgboost":"XGBoost","neural_net":"Neural Net","ensemble":"Ensemble"}[mt] }}</option>{% endfor %}</select>
             </label>
           </div>
           <div class="form-actions">
             <button type="submit" class="btn btn-primary">Run Analysis</button>
             {% if result %}
-            <a href="/api/export/forex?pair={{ result.symbol }}&period={{ form_data.period }}&interval={{ form_data.interval }}"
-               class="btn btn-outline btn-sm">⬇ Export CSV</a>
-            <button type="button" id="wl-btn" class="btn btn-outline btn-sm"
-                    data-symbol="{{ result.symbol }}"
-                    onclick="toggleWatchlist('{{ result.symbol }}')">☆ Watchlist</button>
+            <a href="/api/export/forex?pair={{ result.symbol }}&period={{ form_data.period }}&interval={{ form_data.interval }}" class="btn btn-outline btn-sm">⬇ CSV</a>
+            <button type="button" id="wl-btn" class="btn btn-outline btn-sm" data-symbol="{{ result.symbol }}" onclick="toggleWatchlist('{{ result.symbol }}')">☆ Watchlist</button>
             {% endif %}
+            <label class="form-check"><input type="checkbox" name="walk_forward" value="1" {% if form_data.get('walk_forward') %}checked{% endif %}> Walk-forward CV</label>
+            <label class="form-check"><input type="checkbox" name="compare" value="1" {% if form_data.get('compare') %}checked{% endif %}> Compare models</label>
           </div>
         </form>
 
-        {% if error %}
-        <div class="message error">{{ error }}</div>
-        {% endif %}
+        {% if error %}<div class="message error">{{ error }}</div>{% endif %}
 
         {% if result %}
         <section class="result">
@@ -86,83 +63,84 @@
               <span class="symbol">{{ result.symbol }}</span>
               <span style="font-size:12px;color:var(--muted);margin-left:8px;">{{ result.model_type.replace("_"," ").title() }}</span>
             </div>
-            <span class="badge badge-{{ result.direction | lower }}">{{ result.direction }}</span>
+            <span class="badge badge-{{ result.direction|lower }}">{{ result.direction }}</span>
           </div>
 
-          <!-- Price chart -->
           <div id="price-chart"></div>
 
-          <!-- Stats -->
           <div class="stats-grid">
-            <div class="stat">
-              <div class="stat-label">Last Close</div>
-              <div class="stat-value">{{ "%.5f" | format(result.last_close) }}</div>
-            </div>
-            <div class="stat">
-              <div class="stat-label">Predicted Next</div>
-              <div class="stat-value">{{ "%.5f" | format(result.next_prediction) }}</div>
-            </div>
-            <div class="stat">
-              <div class="stat-label">Confidence ±</div>
-              <div class="stat-value">{{ "%.5f" | format(result.confidence) if result.confidence else "N/A" }}</div>
-            </div>
-            <div class="stat">
-              <div class="stat-label">Change</div>
-              <div class="stat-value {{ 'positive' if result.predicted_change > 0 else 'negative' }}">
-                {{ "%+.5f" | format(result.predicted_change) }}
-              </div>
-            </div>
-            <div class="stat">
-              <div class="stat-label">BB Upper</div>
-              <div class="stat-value">{{ "%.5f" | format(result.bb_upper) }}</div>
-            </div>
-            <div class="stat">
-              <div class="stat-label">BB Lower</div>
-              <div class="stat-value">{{ "%.5f" | format(result.bb_lower) }}</div>
-            </div>
-            <div class="stat">
-              <div class="stat-label">MAE</div>
-              <div class="stat-value">{{ "%.5f" | format(result.metrics.mae) }}</div>
-            </div>
-            <div class="stat">
-              <div class="stat-label">RMSE</div>
-              <div class="stat-value">{{ "%.5f" | format(result.metrics.rmse) }}</div>
-            </div>
+            <div class="stat"><div class="stat-label">Last Close</div><div class="stat-value">{{ "%.5f"|format(result.last_close) }}</div></div>
+            <div class="stat"><div class="stat-label">Predicted</div><div class="stat-value">{{ "%.5f"|format(result.next_prediction) }}</div></div>
+            <div class="stat"><div class="stat-label">Confidence ±</div><div class="stat-value">{{ "%.5f"|format(result.confidence) if result.confidence else "N/A" }}</div></div>
+            <div class="stat"><div class="stat-label">Change</div><div class="stat-value {{ 'positive' if result.predicted_change>0 else 'negative' }}">{{ "%+.5f"|format(result.predicted_change) }}</div></div>
+            <div class="stat"><div class="stat-label">BB Upper</div><div class="stat-value">{{ "%.5f"|format(result.bb_upper) }}</div></div>
+            <div class="stat"><div class="stat-label">BB Lower</div><div class="stat-value">{{ "%.5f"|format(result.bb_lower) }}</div></div>
+            <div class="stat"><div class="stat-label">MAE</div><div class="stat-value">{{ "%.5f"|format(result.metrics.mae) }}</div></div>
+            <div class="stat"><div class="stat-label">RMSE</div><div class="stat-value">{{ "%.5f"|format(result.metrics.rmse) }}</div></div>
           </div>
 
-          <!-- Backtest -->
           {% if result.backtest %}
           <div class="result-section">
-            <h3>Backtest (out-of-sample)</h3>
+            <h3>Backtest — Out-of-Sample</h3>
             <div id="backtest-chart"></div>
             <div class="backtest-stats">
-              <div class="bstat">
-                <span class="bstat-label">Total Return</span>
-                <span class="bstat-value {{ 'positive' if result.backtest.total_return > 0 else 'negative' }}">
-                  {{ "%+.2f" | format(result.backtest.total_return * 100) }}%
-                </span>
-              </div>
-              <div class="bstat">
-                <span class="bstat-label">Win Rate</span>
-                <span class="bstat-value">{{ "%.1f" | format(result.backtest.win_rate * 100) }}%</span>
-              </div>
-              <div class="bstat">
-                <span class="bstat-label">Sharpe</span>
-                <span class="bstat-value">{{ result.backtest.sharpe }}</span>
-              </div>
-              <div class="bstat">
-                <span class="bstat-label">Max Drawdown</span>
-                <span class="bstat-value negative">{{ "%.2f" | format(result.backtest.max_drawdown * 100) }}%</span>
-              </div>
-              <div class="bstat">
-                <span class="bstat-label">Trades</span>
-                <span class="bstat-value">{{ result.backtest.n_trades }}</span>
-              </div>
+              <div class="bstat"><span class="bstat-label">Return</span><span class="bstat-value {{ 'positive' if result.backtest.total_return>0 else 'negative' }}">{{ "%+.2f"|format(result.backtest.total_return*100) }}%</span></div>
+              <div class="bstat"><span class="bstat-label">Win Rate</span><span class="bstat-value">{{ "%.1f"|format(result.backtest.win_rate*100) }}%</span></div>
+              <div class="bstat"><span class="bstat-label">Sharpe</span><span class="bstat-value">{{ result.backtest.sharpe }}</span></div>
+              <div class="bstat"><span class="bstat-label">Max DD</span><span class="bstat-value negative">{{ "%.2f"|format(result.backtest.max_drawdown*100) }}%</span></div>
+              <div class="bstat"><span class="bstat-label">Trades</span><span class="bstat-value">{{ result.backtest.n_trades }}</span></div>
+              {% if result.walk_forward %}
+              <div class="bstat"><span class="bstat-label">WF MAE</span><span class="bstat-value">{{ "%.5f"|format(result.walk_forward.wf_mae) }}</span></div>
+              <div class="bstat"><span class="bstat-label">WF RMSE</span><span class="bstat-value">{{ "%.5f"|format(result.walk_forward.wf_rmse) }}</span></div>
+              {% endif %}
             </div>
           </div>
           {% endif %}
 
-          <!-- Feature importance -->
+          {% if result.sentiment %}
+          <div class="result-section">
+            <h3>News Sentiment</h3>
+            <div class="sentiment-card">
+              <div class="sentiment-score {{ 'positive' if result.sentiment.score>0 else 'negative' if result.sentiment.score<0 else '' }}">
+                {{ "%+.2f"|format(result.sentiment.score) }}
+              </div>
+              <div>
+                <div class="sentiment-label">{{ result.sentiment.label }}</div>
+                <div class="sentiment-note">Based on {{ result.sentiment.article_count }} recent headlines</div>
+              </div>
+            </div>
+            {% if result.sentiment.headlines %}
+            <div class="headlines">
+              {% for h in result.sentiment.headlines %}
+              <div class="headline-row">
+                <span class="sent-dot {{ h.sentiment }}"></span>
+                <span>{{ h.title }}</span>
+              </div>
+              {% endfor %}
+            </div>
+            {% endif %}
+          </div>
+          {% endif %}
+
+          {% if result.model_comparison %}
+          <div class="result-section">
+            <h3>Model Comparison</h3>
+            <table class="comparison-table">
+              <thead><tr><th>Model</th><th>Prediction</th><th>MAE</th><th>RMSE</th></tr></thead>
+              <tbody>
+                {% for m in result.model_comparison %}
+                <tr {% if loop.index==1 %}class="best-row"{% endif %}>
+                  <td>{{ m.model }}</td>
+                  <td>{{ "%.5f"|format(m.prediction) if m.prediction is defined else "—" }}</td>
+                  <td>{{ "%.5f"|format(m.mae) if m.mae is defined else "—" }}</td>
+                  <td>{{ "%.5f"|format(m.rmse) if m.rmse is defined else "—" }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% endif %}
+
           {% if result.feature_importance %}
           <div class="result-section">
             <h3>Feature Importance</h3>
@@ -172,62 +150,38 @@
         </section>
 
         <script>
-          (function () {
-            const dates   = {{ result.chart_dates | tojson }};
-            const prices  = {{ result.chart_prices | tojson }};
+          (function(){
+            const dates   = {{ result.chart_dates|tojson }};
+            const prices  = {{ result.chart_prices|tojson }};
             const nextP   = {{ result.next_prediction }};
             const conf    = {{ result.confidence }};
             const bbU     = {{ result.bb_upper }};
             const bbL     = {{ result.bb_lower }};
-            const isUp    = {{ "true" if result.direction == "UP" else "false" }};
-            const isDark  = document.documentElement.getAttribute("data-theme") === "dark";
-            const gridCol = isDark ? "#1e293b" : "#e5eaf2";
-            const textCol = isDark ? "#94a3b8" : "#111";
+            const isUp    = {{ "true" if result.direction=="UP" else "false" }};
+            const isDark  = document.documentElement.getAttribute("data-theme")==="dark";
+            const grid    = isDark ? "#1e293b" : "#e5eaf2";
+            const txt     = isDark ? "#94a3b8" : "#0f172a";
+            const base = { paper_bgcolor:"transparent",plot_bgcolor:"transparent",font:{family:"Inter,sans-serif",size:11,color:txt},xaxis:{gridcolor:grid,tickfont:{color:txt}},yaxis:{gridcolor:grid,tickfont:{color:txt}},legend:{orientation:"h",y:-0.22,font:{color:txt}},margin:{t:8,r:16,b:40,l:55} };
+            const cfg = {responsive:true,displayModeBar:false};
 
-            const layout = {
-              margin: {t:8,r:16,b:40,l:55},
-              paper_bgcolor:"transparent", plot_bgcolor:"transparent",
-              xaxis:{gridcolor:gridCol,tickangle:-30,tickfont:{color:textCol}},
-              yaxis:{gridcolor:gridCol,tickfont:{color:textCol}},
-              legend:{orientation:"h",y:-0.22,font:{color:textCol}},
-              font:{family:"Arial,sans-serif",size:11,color:textCol},
-            };
-            const cfg = {responsive:true, displayModeBar:false};
-
-            Plotly.newPlot("price-chart", [
-              {x:dates,y:prices,type:"scatter",mode:"lines",name:"Close",line:{color:"#2e7dff",width:2}},
+            Plotly.newPlot("price-chart",[
+              {x:dates,y:prices,type:"scatter",mode:"lines",name:"Close",line:{color:"#3b82f6",width:2}},
               {x:[dates[0],dates.at(-1)],y:[bbU,bbU],type:"scatter",mode:"lines",name:"BB Upper",line:{color:"#f59e0b",width:1,dash:"dot"}},
               {x:[dates[0],dates.at(-1)],y:[bbL,bbL],type:"scatter",mode:"lines",name:"BB Lower",line:{color:"#f59e0b",width:1,dash:"dot"}},
-              {x:["Forecast"],y:[nextP],type:"scatter",mode:"markers",name:"Prediction",
-               error_y:{type:"data",array:[conf],visible:conf>0,color:isUp?"#16a34a":"#dc2626"},
-               marker:{size:11,color:isUp?"#16a34a":"#dc2626",symbol:isUp?"triangle-up":"triangle-down"}},
-            ], layout, cfg);
+              {x:["Forecast"],y:[nextP],type:"scatter",mode:"markers",name:"Prediction",error_y:{type:"data",array:[conf],visible:conf>0,color:isUp?"#10b981":"#ef4444"},marker:{size:12,color:isUp?"#10b981":"#ef4444",symbol:isUp?"triangle-up":"triangle-down"}},
+            ],base,cfg);
 
             {% if result.backtest %}
-            const btDates  = {{ result.backtest.dates | tojson }};
-            const btEquity = {{ result.backtest.equity | tojson }};
-            Plotly.newPlot("backtest-chart", [
-              {x:btDates,y:btEquity,type:"scatter",mode:"lines",name:"Equity",fill:"tozeroy",
-               line:{color:"#2e7dff",width:2},fillcolor:"rgba(46,125,255,0.08)"},
-              {x:[btDates[0],btDates.at(-1)],y:[1,1],type:"scatter",mode:"lines",name:"Baseline",
-               line:{color:"#94a3b8",width:1,dash:"dot"}},
-            ], {...layout, margin:{t:4,r:16,b:36,l:55}}, cfg);
+            Plotly.newPlot("backtest-chart",[
+              {x:{{ result.backtest.dates|tojson }},y:{{ result.backtest.equity|tojson }},type:"scatter",mode:"lines",name:"Equity",fill:"tozeroy",line:{color:"#3b82f6",width:2},fillcolor:"rgba(59,130,246,0.07)"},
+              {x:[{{ result.backtest.dates|tojson }}[0],{{ result.backtest.dates|tojson }}.at(-1)],y:[1,1],type:"scatter",mode:"lines",name:"Baseline",line:{color:"#64748b",width:1,dash:"dot"}},
+            ],{...base,margin:{t:4,r:16,b:36,l:55}},cfg);
             {% endif %}
 
             {% if result.feature_importance %}
-            const fi = {{ result.feature_importance | tojson }};
-            const fiSorted = Object.entries(fi).sort((a,b)=>b[1]-a[1]);
-            Plotly.newPlot("fi-chart", [{
-              x: fiSorted.map(d=>d[1]),
-              y: fiSorted.map(d=>d[0]),
-              type:"bar", orientation:"h",
-              marker:{color:"#2e7dff"},
-            }], {
-              ...layout,
-              margin:{t:4,r:16,b:24,l:100},
-              xaxis:{...layout.xaxis,title:"Importance"},
-              yaxis:{...layout.yaxis,tickfont:{size:11,color:textCol}},
-            }, cfg);
+            const fi = {{ result.feature_importance|tojson }};
+            const sorted = Object.entries(fi).sort((a,b)=>b[1]-a[1]);
+            Plotly.newPlot("fi-chart",[{x:sorted.map(d=>d[1]),y:sorted.map(d=>d[0]),type:"bar",orientation:"h",marker:{color:"#3b82f6"}}],{...base,margin:{t:4,r:16,b:24,l:100},xaxis:{...base.xaxis,title:"Importance"},yaxis:{...base.yaxis,autorange:"reversed"}},cfg);
             {% endif %}
           })();
         </script>

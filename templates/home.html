@@ -4,19 +4,19 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>ChoiceCLASH — AI Market Intelligence</title>
-    <script>
-      (function(){ const t=localStorage.getItem("cc-theme")||"light"; document.documentElement.setAttribute("data-theme",t); })();
-    </script>
+    <script>(function(){ const t=localStorage.getItem("cc-theme")||"light"; document.documentElement.setAttribute("data-theme",t); })();</script>
     <link rel="stylesheet" href="/static/style.css" />
   </head>
   <body class="home-body">
     <nav class="topnav">
       <a href="/" class="nav-brand">ChoiceCLASH</a>
       <div class="nav-links">
-        <a href="/forex" class="nav-link">Forex</a>
-        <a href="/options" class="nav-link">Options</a>
+        <a href="/forex"     class="nav-link">Forex</a>
+        <a href="/options"   class="nav-link">Options</a>
         <a href="/dashboard" class="nav-link">Dashboard</a>
         <a href="/watchlist" class="nav-link">Watchlist</a>
+        <a href="/portfolio" class="nav-link">Portfolio</a>
+        <a href="/alerts"    class="nav-link">Alerts</a>
       </div>
       <div class="nav-right">
         <button id="theme-btn" onclick="toggleTheme()">☾ Dark</button>
@@ -25,16 +25,16 @@
 
     <section class="hero">
       <div class="hero-inner">
-        <div class="hero-badge">AI-Powered Analysis</div>
-        <h1 class="hero-title">Market intelligence,<br />powered by machine learning.</h1>
+        <div class="hero-badge">✦ Premium AI Analysis</div>
+        <h1 class="hero-title">Market intelligence<br /><span>that actually moves</span> with you.</h1>
         <p class="hero-sub">
-          Forecast forex pairs with Random Forest, XGBoost, and Neural Net models.
-          Explore live options chains, IV skews, Greeks, backtesting, and more — all in one place.
+          Ensemble ML forecasting, live options analytics, portfolio tracking, and
+          real-time alerts — all in one platform, no account required.
         </p>
         <div class="hero-cta">
-          <a href="/forex" class="btn btn-primary">Forex Analysis</a>
-          <a href="/options" class="btn btn-outline">Options Market</a>
-          <a href="/dashboard" class="btn btn-outline">Dashboard</a>
+          <a href="/forex"     class="btn btn-primary">Forex Analysis</a>
+          <a href="/options"   class="btn btn-outline">Options Market</a>
+          <a href="/portfolio" class="btn btn-outline">Portfolio</a>
         </div>
       </div>
     </section>
@@ -44,11 +44,12 @@
         <div class="feature-card">
           <div class="feature-icon">📈</div>
           <h2>Forex Forecasting</h2>
-          <p>ML predictions for any currency pair using MACD, RSI, Bollinger Bands, momentum, and volatility.</p>
+          <p>Random Forest, XGBoost, Neural Net, and Ensemble stacking — compare models side by side with walk-forward validation.</p>
           <ul class="feature-list">
-            <li>3 model types: RF, XGBoost, Neural Net</li>
-            <li>Prediction confidence interval</li>
-            <li>Backtesting with equity curve</li>
+            <li>4 model types including Ensemble</li>
+            <li>Backtesting with Sharpe &amp; drawdown</li>
+            <li>Walk-forward cross-validation</li>
+            <li>News sentiment analysis</li>
             <li>Feature importance ranking</li>
           </ul>
           <a href="/forex" class="btn btn-primary btn-sm">Open Forex →</a>
@@ -57,25 +58,27 @@
         <div class="feature-card">
           <div class="feature-icon">📊</div>
           <h2>Options Market</h2>
-          <p>Live options chains for US stocks and ETFs with full analytics and visualization.</p>
+          <p>Live chains for any US stock or ETF with full Greeks, IV skew visualization, and market intelligence.</p>
           <ul class="feature-list">
-            <li>Calls &amp; puts chain with Greeks</li>
-            <li>IV skew + payoff diagram</li>
+            <li>Calls &amp; puts with Δ, Γ, Θ, V</li>
+            <li>Payoff diagram (call, put, straddle)</li>
             <li>Put/Call ratio &amp; max pain</li>
             <li>Unusual activity scanner</li>
+            <li>CSV export</li>
           </ul>
           <a href="/options" class="btn btn-primary btn-sm">Open Options →</a>
         </div>
 
         <div class="feature-card">
           <div class="feature-icon">🗂</div>
-          <h2>Dashboard &amp; Watchlist</h2>
-          <p>Multi-pair analysis, correlation matrix, and a personal watchlist with live price updates.</p>
+          <h2>Dashboard &amp; Tools</h2>
+          <p>Everything else you need: multi-pair dashboard, portfolio tracker, price alerts, and a live watchlist.</p>
           <ul class="feature-list">
-            <li>Analyze up to 8 pairs at once</li>
-            <li>Correlation heatmap</li>
-            <li>Watchlist with 30s live prices</li>
-            <li>JSON API + CSV export</li>
+            <li>Multi-pair correlation matrix</li>
+            <li>Portfolio tracker with live P&amp;L</li>
+            <li>Price alerts with browser notifications</li>
+            <li>Watchlist with 30s refresh</li>
+            <li>JSON API endpoints</li>
           </ul>
           <a href="/dashboard" class="btn btn-primary btn-sm">Open Dashboard →</a>
         </div>
@@ -85,7 +88,6 @@
     <footer class="home-footer">
       <small>ChoiceCLASH &mdash; Built with yfinance &amp; scikit-learn. Not financial advice.</small>
     </footer>
-
     <script src="/static/app.js"></script>
   </body>
 </html>

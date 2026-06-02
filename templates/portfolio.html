@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Portfolio — ChoiceCLASH</title>
+    <script>(function(){ const t=localStorage.getItem("cc-theme")||"light"; document.documentElement.setAttribute("data-theme",t); })();</script>
+    <link rel="stylesheet" href="/static/style.css" />
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+  </head>
+  <body>
+    <nav class="topnav">
+      <a href="/" class="nav-brand">ChoiceCLASH</a>
+      <div class="nav-links">
+        <a href="/forex"      class="nav-link">Forex</a>
+        <a href="/options"    class="nav-link">Options</a>
+        <a href="/dashboard"  class="nav-link">Dashboard</a>
+        <a href="/watchlist"  class="nav-link">Watchlist</a>
+        <a href="/portfolio"  class="nav-link active">Portfolio</a>
+        <a href="/alerts"     class="nav-link">Alerts</a>
+      </div>
+      <div class="nav-right">
+        <button id="theme-btn" onclick="toggleTheme()">☾ Dark</button>
+      </div>
+    </nav>
+
+    <div class="page">
+      <header>
+        <h1>Portfolio Tracker</h1>
+        <p>Track your positions with live P&amp;L. Stored locally — no account needed.</p>
+      </header>
+      <main>
+        <!-- Add position form -->
+        <div class="control-form">
+          <div class="form-row form-row-4">
+            <label>
+              Symbol
+              <input id="pf-symbol" type="text" placeholder="EURUSD=X or AAPL" />
+            </label>
+            <label>
+              Quantity
+              <input id="pf-qty" type="number" placeholder="1000" min="0" step="any" />
+            </label>
+            <label>
+              Entry Price
+              <input id="pf-entry" type="number" placeholder="1.0850" min="0" step="any" />
+            </label>
+            <label>
+              Direction
+              <select id="pf-type">
+                <option value="long">Long</option>
+                <option value="short">Short</option>
+              </select>
+            </label>
+          </div>
+          <div class="form-actions">
+            <button class="btn btn-primary" onclick="addFromForm()">Add Position</button>
+          </div>
+        </div>
+
+        <!-- Summary -->
+        <div id="portfolio-summary" class="portfolio-summary" style="display:none;margin-top:20px;"></div>
+
+        <!-- Pie chart -->
+        <div style="margin-top:20px;background:var(--card);border-radius:var(--radius);border:1px solid var(--border);padding:16px;box-shadow:var(--shadow);">
+          <div id="portfolio-pie"></div>
+        </div>
+
+        <!-- Table -->
+        <div id="portfolio-container" style="margin-top:20px;"></div>
+      </main>
+    </div>
+
+    <footer class="page-footer"><small>ChoiceCLASH — Not financial advice.</small></footer>
+    <script src="/static/app.js"></script>
+    <script>
+      function addFromForm() {
+        const sym   = document.getElementById("pf-symbol").value.trim();
+        const qty   = document.getElementById("pf-qty").value;
+        const entry = document.getElementById("pf-entry").value;
+        const type  = document.getElementById("pf-type").value;
+        if (!sym || !qty || !entry) { showToast("Fill in all fields", "error"); return; }
+        addPosition(sym, qty, entry, type);
+        document.getElementById("pf-symbol").value = "";
+        document.getElementById("pf-qty").value    = "";
+        document.getElementById("pf-entry").value  = "";
+      }
+    </script>
+  </body>
+</html>
